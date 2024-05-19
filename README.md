@@ -24,5 +24,13 @@ Dependencies
 
     Java Development Kit (JDK) version 8 or higher.
 
-    ![image](https://github.com/Aman11037/SwingChess/assets/153110897/3e313d30-c55b-4b52-a4c8-fc4e7256878c)
+    
+Screenshots
 
+![image](https://github.com/Aman11037/SwingChess/assets/153110897/2b8a54a5-e033-4a8e-9a81-1e5e46545156)
+
+
+![image](https://github.com/Aman11037/SwingChess/assets/153110897/fbd9e943-f5ae-4d7f-8ad6-086928e954ba)
+
+
+![image](https://github.com/Aman11037/SwingChess/assets/153110897/417118ca-4445-4bc8-91e2-b6c3a88166bf)
