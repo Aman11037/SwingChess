@@ -3,7 +3,7 @@ SwingChess
 
 Description
 
-    Simple chess game implemented in Java using Swing for the GUI. SwingChess is a Java application that allows users to play chess against each other on a graphical interface. 
+    Simple chess game implemented in Java using Swing for the GUI.
 
 Features
 
