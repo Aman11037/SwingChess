@@ -1,9 +1,10 @@
 SwingChess
 
 This is a simple chess game implemented in Java using Swing for the GUI.
+
 Description
 
-The Chess Game project is a Java application that allows users to play chess against each other on a graphical interface. It supports basic chess rules and functionalities such as moving pieces, capturing opponent pieces, promotion, checking for checkmate and stalemate.
+    SwingChess is a Java application that allows users to play chess against each other on a graphical interface. 
 
 Features
 
