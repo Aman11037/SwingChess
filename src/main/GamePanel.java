@@ -429,8 +429,10 @@ public class GamePanel extends JPanel implements Runnable {
         king.col += colPlus;
         king.row += rowPlus;
         if (king.isValidMove(king.col, king.row)) {
-            if (king.pieceAtTarget != null && !isIllegalMove(king)) {
+            if (king.pieceAtTarget != null) {
                 simPieces.remove(king.pieceAtTarget.getIndex());
+            }
+            if (!isIllegalMove(king)) {
                 isValidMove = true;
             }
         }
@@ -474,8 +476,10 @@ public class GamePanel extends JPanel implements Runnable {
                 if (piece.type == Type.KING && piece.color != currentColor) {
                     king = piece;
                 }
-            } else if (piece.type == Type.KING && piece.color == currentColor) {
-                king = piece;
+            } else {
+                if (piece.type == Type.KING && piece.color == currentColor) {
+                    king = piece;
+                }
             }
         }
         return king;
