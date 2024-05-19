@@ -18,7 +18,6 @@ Usage
     Clone the repository to your local machine.
     Compile the Java files using a Java compiler.
     Run the Main class to start the game.
-    Follow the on-screen instructions to play chess.
 
 Dependencies
 
