@@ -23,3 +23,6 @@ Usage
 Dependencies
 
     Java Development Kit (JDK) version 8 or higher.
+
+    ![image](https://github.com/Aman11037/SwingChess/assets/153110897/3e313d30-c55b-4b52-a4c8-fc4e7256878c)
+
