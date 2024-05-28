@@ -24,5 +24,8 @@ public class Knight extends Piece {
         }
         return false;
     }
+    public char getSymbol() {
+        return 'N'; 
+    }
 
 }

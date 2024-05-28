@@ -31,4 +31,8 @@ public class Queen extends Piece {
         }
         return false;
     }
+    
+    public char getSymbol() {
+        return 'Q'; 
+    }
 }

@@ -25,6 +25,9 @@ public class King extends Piece {
         }
         return false;
     }
-    
+
+    public char getSymbol() {
+        return 'K'; 
+    }
 
 }
