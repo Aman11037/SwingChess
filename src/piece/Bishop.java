@@ -25,5 +25,9 @@ public class Bishop extends Piece {
         }
         return false;
     }
+    
+    public char getSymbol() {
+        return 'B'; 
+    }
 
 }
