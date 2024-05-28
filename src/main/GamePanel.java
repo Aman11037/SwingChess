@@ -16,6 +16,10 @@ import piece.King;
 import piece.Knight;
 import piece.Queen;
 import piece.Rook;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.Date;
+import java.text.SimpleDateFormat;
 
 public class GamePanel extends JPanel implements Runnable {
 
@@ -26,11 +30,18 @@ public class GamePanel extends JPanel implements Runnable {
     Board board = new Board();
     Mouse mouse = new Mouse();
 
+    private int gameID;
+    int moveNumber = 0;
+
     // PIECES
     public static ArrayList<Piece> pieces = new ArrayList<>();
     public static ArrayList<Piece> simPieces = new ArrayList<>();
     public ArrayList<Piece> promotionPieces = new ArrayList<>();
     Piece activePiece, checkingPiece;
+
+    // Variables for storing moves
+    private ArrayList<String> whiteMoves = new ArrayList<>();
+    private ArrayList<String> blackMoves = new ArrayList<>();
 
     // COLOR
     public static final int WHITE = 0;
@@ -53,9 +64,9 @@ public class GamePanel extends JPanel implements Runnable {
         setBackground(Color.black);
         addMouseMotionListener(mouse);
         addMouseListener(mouse);
+        gameID = Database.getLastGameId() + 1;
         setPieces();
         copyPieces(pieces, simPieces);
-
     }
 
     public void run() {
@@ -112,7 +123,6 @@ public class GamePanel extends JPanel implements Runnable {
         pieces.add(new King(WHITE, 4, 7));
 
         pieces.add(new Pawn(BLACK, 0, 1));
-        pieces.add(new Pawn(BLACK, 0, 1));
         pieces.add(new Pawn(BLACK, 1, 1));
         pieces.add(new Pawn(BLACK, 2, 1));
         pieces.add(new Pawn(BLACK, 3, 1));
@@ -154,23 +164,30 @@ public class GamePanel extends JPanel implements Runnable {
                 } else {
                     // If the player is holding a piece, simulate the move
                     simulate();
-
                 }
-
             }
             if (!mouse.pressed) {
                 if (activePiece != null) {
-                    if ((isValidSquare)) {
+                    if (isValidSquare) {
                         // MOVE CONFIRMED
-
+                        String move = getMoveString(activePiece, activePiece.preCol, activePiece.col, activePiece.row);
+                        addMove(move);
+                        moveNumber++;
+                        insertMoveRecord(moveNumber, (currentColor == WHITE) ? "White" : "Black", move);
                         // Update the list of pieces if a piece has been captured and removed during simulation
                         copyPieces(simPieces, pieces);
                         activePiece.updatePosition();
 
                         if (isKingInCheck() && isCheckmate()) {
                             gameOver = true;
+                            if (currentColor == WHITE) {
+                                insertGameRecord("White");
+                            } else {
+                                insertGameRecord("Black");
+                            }
                         } else if (isStalemate() && !isKingInCheck()) {
                             stalemate = true;
+                                insertGameRecord("Draw");
                         } else {    // The game is still going on
                             if (canPromote()) {
                                 promotion = true;
@@ -188,7 +205,6 @@ public class GamePanel extends JPanel implements Runnable {
                 }
             }
         }
-
     }
 
     private void simulate() {
@@ -489,7 +505,8 @@ public class GamePanel extends JPanel implements Runnable {
         super.paintComponent(g);
 
         Graphics2D g2 = (Graphics2D) g;
-        drawTimer(g);
+        drawTimer(g2);
+        drawMoves(g2);
 
         // Calculate the offset to center the board
         int offsetX = (WIDTH - (Board.SQUARE_SIZE * board.MAX_COL)) / 2;
@@ -596,4 +613,105 @@ public class GamePanel extends JPanel implements Runnable {
         String timerText = String.format("%02d:%02d", minutes, seconds);
         g.drawString("Game Time: " + timerText, 75, 50);
     }
+
+    private void addMove(String move) {
+        if (currentColor == WHITE) {
+            whiteMoves.add(move);
+        } else {
+            blackMoves.add(move);
+        }
+    }
+
+    private void drawMoves(Graphics2D g2) {
+        int x = 0;
+        int y = 500;
+        int increment = 30;
+
+        g2.setColor(Color.WHITE);
+        g2.setFont(new Font("Times New Roman", Font.PLAIN, 20));
+        for (int i = 0; i < whiteMoves.size(); i++) {
+            g2.drawString((i + 1) + ". " + whiteMoves.get(i), x, y);
+            y += increment;
+        }
+
+        x = getWidth() - 100;
+        y = 50;
+        for (int i = 0; i < blackMoves.size(); i++) {
+            g2.drawString((i + 1) + ". " + blackMoves.get(i), x, y);
+            y += increment;
+        }
+    }
+
+    private String getCurrentTime() {
+        long minutes = (elapsedTime / 1000) / 60;
+        long seconds = (elapsedTime / 1000) % 60;
+        String currentTime = minutes + ":" + seconds;
+        return currentTime;
+    }
+
+    private String getMoveString(Piece piece, int initialCol, int targetCol, int targetRow) {
+        char pieceSymbol = piece.getSymbol();
+        char file = getFileSymbol(initialCol, targetCol);
+        int rank = getRankSymbol(targetRow);
+        char specialFile = getFileSymbol(piece, targetCol);
+        String special = "";
+        if (piece.pieceAtTarget != null) {
+            special = "x";
+        }
+        if (isKingInCheck()) {
+            special += "+";
+        }
+
+        if (piece.type == Type.PAWN && special == "") {
+            return "" + file + rank;
+        } else if (piece.type == Type.PAWN && special == "x") {
+            return specialFile + special + file + rank;
+        }
+
+        return pieceSymbol + special + file + rank;
+    }
+
+    private void insertGameRecord(String winner) {
+        String date = getCurrentDate();
+        String whitePlayer = "White";
+        String blackPlayer = "Black";
+        Database.insertGame(gameID, date, whitePlayer, blackPlayer, winner);
+    }
+
+    private void insertMoveRecord(int moveNumber, String playerColor, String move) {
+        Database.insertMove(gameID, moveNumber, playerColor, move);
+    }
+
+    private char getFileSymbol(int initialCol, int targetCol) {
+        char file = ' ';
+        file = (char) ('a' + targetCol);
+        return file;
+    }
+
+    private char getFileSymbol(Piece piece, int col) {
+        char file = ' ';
+        System.out.println(piece.preCol);
+        System.out.println(piece.col);
+        if (piece.preCol > col) {
+            file = (char) ('b' + col);
+        } else if (piece.preCol < col) {
+            file = (char) ('`' + col);
+        } else {
+            file = (char) ('b' + col);
+        }
+
+        return file;
+    }
+
+    private int getRankSymbol(int row) {
+        int rank = 8 - row;
+        return rank;
+    }
+
+    private String getCurrentDate() {
+        Date now = new Date();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        return sdf.format(now);
+    }
+
 }
