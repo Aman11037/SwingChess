@@ -26,5 +26,9 @@ public class Rook extends Piece {
         }
         return false;
     }
+    
+    public char getSymbol() {
+        return 'R'; 
+    }
 
 }
