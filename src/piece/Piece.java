@@ -8,7 +8,7 @@ import main.GamePanel;
 import java.awt.Graphics2D;
 import main.Type;
 
-public class Piece {
+public abstract class Piece {
 
     public Type type;
     public BufferedImage image;
@@ -78,9 +78,7 @@ public class Piece {
         y = getY(row);
     }
 
-    public boolean isValidMove(int targetCol, int targetRow) {
-        return false;
-    }
+    public abstract boolean isValidMove(int targetCol, int targetRow);
 
     public boolean isWithinBoard(int targetCol, int targetRow) {
         if (targetCol >= 0 && targetCol <= 7 && targetRow >= 0 && targetRow <= 7) {
@@ -170,4 +168,6 @@ public class Piece {
     public void draw(Graphics2D g2) {
         g2.drawImage(image, x, y, Board.SQUARE_SIZE, Board.SQUARE_SIZE, null);
     }
+    
+     public abstract char getSymbol();
 }
