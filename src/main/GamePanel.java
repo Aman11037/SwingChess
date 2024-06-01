@@ -25,13 +25,16 @@ public class GamePanel extends JPanel implements Runnable {
 
     public static final int WIDTH = 1920;
     public static final int HEIGHT = 1080;
-    final int FPS = 144;
+    private static final int FPS = 144;
     Thread gameThread;
     Board board = new Board();
     Mouse mouse = new Mouse();
+    private static final int MAX_NAME_LENGTH = 10;
 
+    //  Match Details
     private int gameID;
     int moveNumber = 0;
+    private int consecutiveMovesWithoutPawnOrCapture = 0;
 
     // PIECES
     public static ArrayList<Piece> pieces = new ArrayList<>();
@@ -39,7 +42,11 @@ public class GamePanel extends JPanel implements Runnable {
     public ArrayList<Piece> promotionPieces = new ArrayList<>();
     Piece activePiece, checkingPiece;
 
-    // Variables for storing moves
+    // NAMES
+    private String player1;
+    private String player2;
+
+    // MOVE LISTS
     private ArrayList<String> whiteMoves = new ArrayList<>();
     private ArrayList<String> blackMoves = new ArrayList<>();
 
@@ -55,11 +62,13 @@ public class GamePanel extends JPanel implements Runnable {
     boolean gameOver;
     boolean stalemate;
 
-    // Timer variables
+    // TIMER
     private long startTime;
     private long elapsedTime;
 
-    public GamePanel() {
+    public GamePanel(String player1, String player2) {
+        this.player1 = trimName(player1);
+        this.player2 = trimName(player2);
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
         setBackground(Color.black);
         addMouseMotionListener(mouse);
@@ -67,6 +76,13 @@ public class GamePanel extends JPanel implements Runnable {
         gameID = Database.getLastGameId() + 1;
         setPieces();
         copyPieces(pieces, simPieces);
+    }
+
+    private String trimName(String name) {
+        if (name.length() > MAX_NAME_LENGTH) {
+            return name.substring(0, MAX_NAME_LENGTH) + "...";
+        }
+        return name;
     }
 
     public void run() {
@@ -173,11 +189,17 @@ public class GamePanel extends JPanel implements Runnable {
                         String move = getMoveString(activePiece, activePiece.preCol, activePiece.col, activePiece.row);
                         addMove(move);
                         moveNumber++;
-                        insertMoveRecord(moveNumber, (currentColor == WHITE) ? "White" : "Black", move);
+                        Database.insertMove(gameID, moveNumber, (currentColor == WHITE) ? this.player1 : this.player2, move, getCurrentTime());
+                        //  CHECK FOR FIFTY-MOVE RULE
+                        if (!activePiece.type.equals(Type.PAWN) && activePiece.pieceAtTarget == null) {
+                            consecutiveMovesWithoutPawnOrCapture++;
+                        } else {
+                            // Reset the move count if the move involves pawn movement or capture
+                            consecutiveMovesWithoutPawnOrCapture = 0;
+                        }
                         // Update the list of pieces if a piece has been captured and removed during simulation
                         copyPieces(simPieces, pieces);
                         activePiece.updatePosition();
-
                         if (isKingInCheck() && isCheckmate()) {
                             gameOver = true;
                             if (currentColor == WHITE) {
@@ -185,9 +207,9 @@ public class GamePanel extends JPanel implements Runnable {
                             } else {
                                 insertGameRecord("Black");
                             }
-                        } else if (isStalemate() && !isKingInCheck()) {
+                        } else if ((isStalemate() || consecutiveMovesWithoutPawnOrCapture >= 50) && !isKingInCheck()) {
                             stalemate = true;
-                                insertGameRecord("Draw");
+                            insertGameRecord("Draw");
                         } else {    // The game is still going on
                             if (canPromote()) {
                                 promotion = true;
@@ -208,7 +230,6 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private void simulate() {
-
         isValidMove = false;
         isValidSquare = false;
 
@@ -224,11 +245,9 @@ public class GamePanel extends JPanel implements Runnable {
 
         if (activePiece.isValidMove(activePiece.col, activePiece.row)) {
             isValidMove = true;
-
             if (activePiece.pieceAtTarget != null) {
                 simPieces.remove(activePiece.pieceAtTarget.getIndex());
             }
-
             if (!isIllegalMove(activePiece) && !oppCanCaptureKing()) {
                 isValidSquare = true;
             }
@@ -464,8 +483,8 @@ public class GamePanel extends JPanel implements Runnable {
             return true;
         } else {
             checkingPiece = null;
+            return false;
         }
-        return false;
     }
 
     private boolean isStalemate() {
@@ -503,17 +522,18 @@ public class GamePanel extends JPanel implements Runnable {
 
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
-
         Graphics2D g2 = (Graphics2D) g;
+        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         drawTimer(g2);
-        drawMoves(g2);
+        drawBoardAndPieces(g2);
+        drawStatusMessages(g2);
+    }
 
-        // Calculate the offset to center the board
+    private void drawBoardAndPieces(Graphics2D g2) {
         int offsetX = (WIDTH - (Board.SQUARE_SIZE * board.MAX_COL)) / 2;
         int offsetY = (HEIGHT - (Board.SQUARE_SIZE * board.MAX_ROW)) / 2;
 
         mouse.setOffsets(offsetX, offsetY);
-
         g2.translate(offsetX, offsetY);
 
         board.draw(g2);
@@ -522,96 +542,31 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         if (activePiece != null) {
-            if (isValidMove) {
-                if (isIllegalMove(activePiece) || oppCanCaptureKing()) {
-                    g2.setColor(Color.red);
-                    g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.7f));
-                    g2.fillRect(activePiece.col * Board.SQUARE_SIZE, activePiece.row * Board.SQUARE_SIZE, Board.SQUARE_SIZE, Board.SQUARE_SIZE);
-                    g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
-                } else {
-                    g2.setColor(Color.white);
-                    g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.7f));
-                    g2.fillRect(activePiece.col * Board.SQUARE_SIZE, activePiece.row * Board.SQUARE_SIZE, Board.SQUARE_SIZE, Board.SQUARE_SIZE);
-                    g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
-                }
-            }
-
-            // Draw the active piece in the end so that it won't be hidden by the board or the colored square
-            activePiece.draw(g2);
+            drawActivePiece(g2);
         }
 
-        // Reset the translation
         g2.translate(-offsetX, -offsetY);
-
-        // STATUS MESSAGES
-        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-        g2.setFont(new Font("Gabriola", Font.PLAIN, 75));
-        g2.setColor(Color.WHITE);
-
-        if (promotion) {
-            if (currentColor == WHITE) {
-                g2.drawString("Promote to: ", 80, 350);
-                int xOffset = 150; // Initial x offset for drawing promotion pieces
-                int yOffset = 400; // Initial y offset for drawing promotion pieces
-                for (Piece piece : promotionPieces) {
-                    g2.drawImage(piece.image, xOffset, yOffset, Board.SQUARE_SIZE, Board.SQUARE_SIZE, null);
-                    // Use offsetX and offsetY to adjust the drawing position
-                    yOffset += Board.SQUARE_SIZE + 10; // Increase the y offset for the next row
-                }
-            } else if (currentColor == BLACK) {
-                g2.drawString("Promote to: ", 1550, 350);
-                int xOffset = 1625; // Initial x offset for drawing promotion pieces
-                int yOffset = 400; // Initial y offset for drawing promotion pieces
-                for (Piece piece : promotionPieces) {
-                    g2.drawImage(piece.image, xOffset, yOffset, Board.SQUARE_SIZE, Board.SQUARE_SIZE, null);
-                    // Use offsetX and offsetY to adjust the drawing position
-                    yOffset += Board.SQUARE_SIZE + 10; // Increase the y offset for the next row
-                }
-            }
-
-        }
-        if (currentColor == WHITE) {
-            g2.drawString("White's turn", 75, 200);
-            if (checkingPiece != null && checkingPiece.color == BLACK) {
-                g2.setFont(new Font("Gabriola", Font.PLAIN, 50));
-                g2.setColor(Color.RED);
-                g2.drawString("The King is in check!", 75, 400);
-            }
-        } else {
-            g2.drawString("Black's turn", 1550, 200);
-            if (checkingPiece != null && checkingPiece.color == WHITE) {
-                g2.setFont(new Font("Gabriola", Font.PLAIN, 50));
-                g2.setColor(Color.RED);
-                g2.drawString("The King is in check!", 1550, 400);
-            }
-        }
-
-        if (gameOver) {
-            String s = "";
-            if (currentColor == WHITE) {
-                s = "White Wins";
-            } else if (currentColor == BLACK) {
-                s = "Black Wins";
-            }
-            g2.setFont(new Font("Gabriola", Font.PLAIN, 100));
-            g2.setColor(Color.YELLOW);
-            g2.drawString(s, 780, 600);
-        }
-
-        if (stalemate) {
-            g2.setFont(new Font("Gabriola", Font.PLAIN, 100));
-            g2.setColor(Color.YELLOW);
-            g2.drawString("Game Draw(Stalemate)", 580, 600);
-        }
     }
 
-    private void drawTimer(Graphics g) {
-        g.setFont(new Font("Gabriola", Font.PLAIN, 50));
-        g.setColor(Color.WHITE);
-        long minutes = (elapsedTime / 1000) / 60;
-        long seconds = (elapsedTime / 1000) % 60;
-        String timerText = String.format("%02d:%02d", minutes, seconds);
-        g.drawString("Game Time: " + timerText, 75, 50);
+    private void drawActivePiece(Graphics2D g2) {
+        if (isValidMove) {
+            drawMoveHighlight(g2);
+        }
+        activePiece.draw(g2);
+    }
+
+    private void drawMoveHighlight(Graphics2D g2) {
+        g2.setColor(isIllegalMove(activePiece) || oppCanCaptureKing() ? Color.red : Color.white);
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.7f));
+        g2.fillRect(activePiece.col * Board.SQUARE_SIZE, activePiece.row * Board.SQUARE_SIZE, Board.SQUARE_SIZE, Board.SQUARE_SIZE);
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
+    }
+
+    private void drawTimer(Graphics2D g2) {
+        g2.setFont(new Font("Gabriola", Font.PLAIN, 50));
+        g2.setColor(Color.WHITE);
+        String timerText = String.format("Game Time: %02d:%02d", (elapsedTime / 1000) / 60, (elapsedTime / 1000) % 60);
+        g2.drawString(timerText, 0, 50);
     }
 
     private void addMove(String move) {
@@ -623,29 +578,93 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private void drawMoves(Graphics2D g2) {
-        int x = 0;
-        int y = 500;
-        int increment = 30;
+        drawMovesForColor(g2, whiteMoves, 0, 300);
+        drawMovesForColor(g2, blackMoves, getWidth() - 415, 300);
+    }
 
+    private void drawMovesForColor(Graphics2D g2, ArrayList<String> moves, int x, int y) {
         g2.setColor(Color.WHITE);
         g2.setFont(new Font("Times New Roman", Font.PLAIN, 20));
-        for (int i = 0; i < whiteMoves.size(); i++) {
-            g2.drawString((i + 1) + ". " + whiteMoves.get(i), x, y);
+        int increment = 30;
+
+        for (int i = 0; i < moves.size(); i++) {
+            if (y >= 1080) {
+                x += 100;
+                y = 300;
+            }
+            g2.drawString((i + 1) + ". " + moves.get(i), x, y);
             y += increment;
+        }
+    }
+
+    private void drawStatusMessages(Graphics2D g2) {
+        g2.setFont(new Font("Gabriola", Font.PLAIN, 75));
+        g2.setColor(Color.WHITE);
+
+        if (promotion) {
+            drawPromotionMessage(g2);
+        } else {
+            drawMoves(g2);
+            drawTurnMessage(g2);
         }
 
-        x = getWidth() - 100;
-        y = 50;
-        for (int i = 0; i < blackMoves.size(); i++) {
-            g2.drawString((i + 1) + ". " + blackMoves.get(i), x, y);
-            y += increment;
+        if (gameOver) {
+            drawGameOverMessage(g2);
         }
+
+        if (stalemate) {
+            drawStalemateMessage(g2);
+        }
+    }
+
+    private void drawPromotionMessage(Graphics2D g2) {
+        String message = "Promote to: ";
+        int x = (currentColor == WHITE) ? 75 : 1550;
+        g2.drawString(message, x, 350);
+        drawPromotionPieces(g2, x + 60, 400);
+    }
+
+    private void drawPromotionPieces(Graphics2D g2, int x, int y) {
+        for (Piece piece : promotionPieces) {
+            g2.drawImage(piece.image, x, y, Board.SQUARE_SIZE, Board.SQUARE_SIZE, null);
+            y += Board.SQUARE_SIZE + 10;
+        }
+    }
+
+    private void drawTurnMessage(Graphics2D g2) {
+        g2.setFont(new Font("Gabriola", Font.PLAIN, 50));
+        String message = (currentColor == WHITE) ? this.player1 + " 's turn" : this.player2 + " 's turn";
+        int x = (currentColor == WHITE) ? 0 : 1505;
+        g2.drawString(message, x, 200);
+
+        if (checkingPiece != null && checkingPiece.color != currentColor) {
+            drawCheckMessage(g2, x);
+        }
+    }
+
+    private void drawCheckMessage(Graphics2D g2, int x) {
+        g2.setFont(new Font("Gabriola", Font.PLAIN, 50));
+        g2.setColor(Color.RED);
+        g2.drawString("The King is in check!", x, 400);
+    }
+
+    private void drawGameOverMessage(Graphics2D g2) {
+        String message = (currentColor == WHITE) ? "White Wins" : "Black Wins";
+        g2.setFont(new Font("Gabriola", Font.PLAIN, 100));
+        g2.setColor(Color.YELLOW);
+        g2.drawString(message, 780, 600);
+    }
+
+    private void drawStalemateMessage(Graphics2D g2) {
+        g2.setFont(new Font("Gabriola", Font.PLAIN, 100));
+        g2.setColor(Color.YELLOW);
+        g2.drawString("Game Draw(Stalemate)", 580, 600);
     }
 
     private String getCurrentTime() {
         long minutes = (elapsedTime / 1000) / 60;
         long seconds = (elapsedTime / 1000) % 60;
-        String currentTime = minutes + ":" + seconds;
+        String currentTime = String.format("%02d:%02d", minutes, seconds);
         return currentTime;
     }
 
@@ -658,10 +677,6 @@ public class GamePanel extends JPanel implements Runnable {
         if (piece.pieceAtTarget != null) {
             special = "x";
         }
-        if (isKingInCheck()) {
-            special += "+";
-        }
-
         if (piece.type == Type.PAWN && special == "") {
             return "" + file + rank;
         } else if (piece.type == Type.PAWN && special == "x") {
@@ -673,13 +688,9 @@ public class GamePanel extends JPanel implements Runnable {
 
     private void insertGameRecord(String winner) {
         String date = getCurrentDate();
-        String whitePlayer = "White";
-        String blackPlayer = "Black";
-        Database.insertGame(gameID, date, whitePlayer, blackPlayer, winner);
-    }
-
-    private void insertMoveRecord(int moveNumber, String playerColor, String move) {
-        Database.insertMove(gameID, moveNumber, playerColor, move);
+        String whitePlayer = this.player1;
+        String blackPlayer = this.player2;
+        Database.insertGame(gameID, date, whitePlayer, blackPlayer, winner, getCurrentTime());
     }
 
     private char getFileSymbol(int initialCol, int targetCol) {
@@ -690,8 +701,6 @@ public class GamePanel extends JPanel implements Runnable {
 
     private char getFileSymbol(Piece piece, int col) {
         char file = ' ';
-        System.out.println(piece.preCol);
-        System.out.println(piece.col);
         if (piece.preCol > col) {
             file = (char) ('b' + col);
         } else if (piece.preCol < col) {
@@ -709,9 +718,15 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private String getCurrentDate() {
-        Date now = new Date();
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-        return sdf.format(now);
+        Date currentDate = new Date();
+        SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy");
+        return sdf.format(currentDate);
+    }
+
+    public void cancelGame() {
+        if (!gameOver && !stalemate) {
+            insertGameRecord("Match Cancelled");
+        }
     }
 
 }
