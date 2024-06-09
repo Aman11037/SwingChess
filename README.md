@@ -21,7 +21,7 @@ Usage
 
 Dependencies
 
-    Java Development Kit (JDK) version 8 or higher.
+    Java Development Kit (JDK) version 20 or higher.
 
     
 Screenshots
