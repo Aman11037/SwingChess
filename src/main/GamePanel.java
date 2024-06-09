@@ -42,11 +42,11 @@ public class GamePanel extends JPanel implements Runnable {
     public ArrayList<Piece> promotionPieces = new ArrayList<>();
     Piece activePiece, checkingPiece;
 
-    // NAMES
-    private String player1;
-    private String player2;
+    //  NAMES
+    private String whitePlayerName;
+    private String blackPlayerName;
 
-    // MOVE LISTS
+    // Variables for storing moves
     private ArrayList<String> whiteMoves = new ArrayList<>();
     private ArrayList<String> blackMoves = new ArrayList<>();
 
@@ -67,8 +67,8 @@ public class GamePanel extends JPanel implements Runnable {
     private long elapsedTime;
 
     public GamePanel(String player1, String player2) {
-        this.player1 = trimName(player1);
-        this.player2 = trimName(player2);
+        this.whitePlayerName = trimName(player1);
+        this.blackPlayerName = trimName(player2);
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
         setBackground(Color.black);
         addMouseMotionListener(mouse);
@@ -189,7 +189,7 @@ public class GamePanel extends JPanel implements Runnable {
                         String move = getMoveString(activePiece, activePiece.preCol, activePiece.col, activePiece.row);
                         addMove(move);
                         moveNumber++;
-                        Database.insertMove(gameID, moveNumber, (currentColor == WHITE) ? this.player1 : this.player2, move, getCurrentTime());
+                        Database.insertMove(gameID, moveNumber, (currentColor == WHITE) ? this.whitePlayerName : this.blackPlayerName, move, getCurrentTime());
                         //  CHECK FOR FIFTY-MOVE RULE
                         if (!activePiece.type.equals(Type.PAWN) && activePiece.pieceAtTarget == null) {
                             consecutiveMovesWithoutPawnOrCapture++;
@@ -203,9 +203,9 @@ public class GamePanel extends JPanel implements Runnable {
                         if (isKingInCheck() && isCheckmate()) {
                             gameOver = true;
                             if (currentColor == WHITE) {
-                                insertGameRecord("White");
+                                insertGameRecord(whitePlayerName);
                             } else {
-                                insertGameRecord("Black");
+                                insertGameRecord(blackPlayerName);
                             }
                         } else if ((isStalemate() || consecutiveMovesWithoutPawnOrCapture >= 50) && !isKingInCheck()) {
                             stalemate = true;
@@ -633,7 +633,7 @@ public class GamePanel extends JPanel implements Runnable {
 
     private void drawTurnMessage(Graphics2D g2) {
         g2.setFont(new Font("Gabriola", Font.PLAIN, 50));
-        String message = (currentColor == WHITE) ? this.player1 + " 's turn" : this.player2 + " 's turn";
+        String message = (currentColor == WHITE) ? this.whitePlayerName + " 's turn" : this.blackPlayerName + " 's turn";
         int x = (currentColor == WHITE) ? 0 : 1505;
         g2.drawString(message, x, 200);
 
@@ -645,11 +645,11 @@ public class GamePanel extends JPanel implements Runnable {
     private void drawCheckMessage(Graphics2D g2, int x) {
         g2.setFont(new Font("Gabriola", Font.PLAIN, 50));
         g2.setColor(Color.RED);
-        g2.drawString("The King is in check!", x, 400);
+        g2.drawString("The King is in check!", x, 100);
     }
 
     private void drawGameOverMessage(Graphics2D g2) {
-        String message = (currentColor == WHITE) ? "White Wins" : "Black Wins";
+        String message = (currentColor == WHITE) ? whitePlayerName + " Wins" : blackPlayerName + " Wins";
         g2.setFont(new Font("Gabriola", Font.PLAIN, 100));
         g2.setColor(Color.YELLOW);
         g2.drawString(message, 780, 600);
@@ -688,9 +688,7 @@ public class GamePanel extends JPanel implements Runnable {
 
     private void insertGameRecord(String winner) {
         String date = getCurrentDate();
-        String whitePlayer = this.player1;
-        String blackPlayer = this.player2;
-        Database.insertGame(gameID, date, whitePlayer, blackPlayer, winner, getCurrentTime());
+        Database.insertGame(gameID, date, whitePlayerName, blackPlayerName, winner, getCurrentTime());
     }
 
     private char getFileSymbol(int initialCol, int targetCol) {
